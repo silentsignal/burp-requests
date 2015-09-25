@@ -79,10 +79,11 @@ public class BurpExtender implements IBurpExtender, IContextMenuFactory, Clipboa
 		int bo = ri.getBodyOffset();
 		if (bo == req.length - 1) return;
 		py.append(", data=");
+		String reqString = new String(req, bo, req.length - bo);
 		if (ri.getContentType() == IRequestInfo.CONTENT_TYPE_URL_ENCODED) {
 			py.append('{');
 			boolean firstKey = true;
-			for (String param : new String(req, bo, req.length - bo).split("&")) {
+			for (String param : reqString.split("&")) {
 				if (firstKey) {
 					firstKey = false;
 					py.append('"');
@@ -98,7 +99,7 @@ public class BurpExtender implements IBurpExtender, IContextMenuFactory, Clipboa
 			py.append('}');
 		} else {
 			py.append('"');
-			py.append(escapeQuotes(new String(req, bo, req.length - bo)));
+			py.append(escapeQuotes(reqString));
 			py.append('"');
 		}
 	}
