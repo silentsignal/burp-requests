@@ -11,6 +11,17 @@ public class BurpExtender implements IBurpExtender, IContextMenuFactory, Clipboa
 	private IExtensionHelpers helpers;
 
 	private final static String NAME = "Copy as requests";
+	private final static String[] PYTHON_ESCAPE = new String[256];
+
+	static {
+		for (int i = 0x00; i <= 0xFF; i++) PYTHON_ESCAPE[i] = String.format("\\x%02x", i);
+		for (int i = 0x20; i < 0x80; i++) PYTHON_ESCAPE[i] = String.valueOf((char)i);
+		PYTHON_ESCAPE['\n'] = "\\n";
+		PYTHON_ESCAPE['\r'] = "\\r";
+		PYTHON_ESCAPE['\t'] = "\\t";
+		PYTHON_ESCAPE['"'] = "\\\"";
+		PYTHON_ESCAPE['\\'] = "\\\\";
+	}
 
 	@Override
 	public void registerExtenderCallbacks(IBurpExtenderCallbacks callbacks)
@@ -79,34 +90,60 @@ public class BurpExtender implements IBurpExtender, IContextMenuFactory, Clipboa
 		int bo = ri.getBodyOffset();
 		if (bo == req.length - 1) return;
 		py.append(", data=");
-		String reqString = new String(req, bo, req.length - bo);
 		if (ri.getContentType() == IRequestInfo.CONTENT_TYPE_URL_ENCODED) {
 			py.append('{');
 			boolean firstKey = true;
-			for (String param : reqString.split("&")) {
-				if (firstKey) {
-					firstKey = false;
-					py.append('"');
-				} else {
-					py.append(", \"");
+			int keyStart = bo, keyEnd = -1;
+			for (int pos = bo; pos < req.length; pos++) {
+				byte b = req[pos];
+				if (keyEnd == -1) {
+					if (b == (byte)'=') {
+						if (pos == req.length - 1) {
+							if (!firstKey) py.append(", ");
+							escapeUrlEncodedBytes(req, py, keyStart, pos);
+							py.append(": ''");
+						} else {
+							keyEnd = pos;
+						}
+					}
+				} else if (b == (byte)'&' || pos == req.length - 1) {
+					if (firstKey) firstKey = false; else py.append(", ");
+					escapeUrlEncodedBytes(req, py, keyStart, keyEnd);
+					py.append(": ");
+					escapeUrlEncodedBytes(req, py, keyEnd + 1,
+							pos == req.length - 1 ? req.length : pos);
+					keyEnd = -1;
+					keyStart = pos + 1;
 				}
-				String[] parts = param.split("=", 2);
-				py.append(escapeQuotes(helpers.urlDecode(parts[0])));
-				py.append("\": \"");
-				py.append(escapeQuotes(helpers.urlDecode(parts[1])));
-				py.append('"');
 			}
 			py.append('}');
 		} else {
-			py.append('"');
-			py.append(escapeQuotes(reqString));
-			py.append('"');
+			escapeBytes(req, py, bo, req.length);
 		}
 	}
 
 	private static String escapeQuotes(String value) {
 		return value.replace("\\", "\\\\").replace("\"", "\\\"")
 			.replace("\n", "\\n").replace("\r", "\\r");
+	}
+
+	private void escapeUrlEncodedBytes(byte[] input, StringBuilder output,
+			int start, int end) {
+		if (end > start) {
+			byte[] dec = helpers.urlDecode(Arrays.copyOfRange(input, start, end));
+			escapeBytes(dec, output, 0, dec.length);
+		} else {
+			output.append("''");
+		}
+	}
+
+	private static void escapeBytes(byte[] input, StringBuilder output,
+			int start, int end) {
+		output.append('"');
+		for (int pos = start; pos < end; pos++) {
+			output.append(PYTHON_ESCAPE[input[pos] & 0xFF]);
+		}
+		output.append('"');
 	}
 
 	@Override
