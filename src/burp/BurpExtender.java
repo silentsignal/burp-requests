@@ -45,7 +45,7 @@ public class BurpExtender implements IBurpExtender, IContextMenuFactory
 			py.append("\", headers={");
 			boolean firstHeader = true;
 			for (String header : ri.getHeaders()) {
-				if (header.startsWith("Host:")) continue;
+				if (header.toLowerCase().startsWith("host:")) continue;
 				header = escapeQuotes(header);
 				int colonPos = header.indexOf(':');
 				if (colonPos == -1) continue;
