@@ -55,20 +55,50 @@ public class BurpExtender implements IBurpExtender, IContextMenuFactory, Clipboa
 			String prefix = "burp" + i++ + "_";
 			py.append("\n\n").append(prefix).append("url = \"");
 			py.append(escapeQuotes(ri.getUrl().toString()));
-			py.append("\"\n").append(prefix).append("headers = {");
-			processHeaders(py, ri.getHeaders());
+			py.append('"');
+			List<String> headers = ri.getHeaders();
+			boolean cookiesExist = processCookies(prefix, py, headers);
+			py.append('\n').append(prefix).append("headers = {");
+			processHeaders(py, headers);
 			py.append('}');
 			boolean bodyExists = processBody(prefix, py, req, ri);
 			py.append("\nrequests.");
 			py.append(ri.getMethod().toLowerCase());
 			py.append('(').append(prefix).append("url, headers=");
 			py.append(prefix).append("headers");
+			if (cookiesExist) py.append(", cookies=").append(prefix).append("cookies");
 			if (bodyExists) py.append(", data=").append(prefix).append("data");
 			py.append(')');
 		}
 
 		Toolkit.getDefaultToolkit().getSystemClipboard()
 			.setContents(new StringSelection(py.toString()), this);
+	}
+
+	private static boolean processCookies(String prefix, StringBuilder py,
+			List<String> headers) {
+		ListIterator<String> iter = headers.listIterator();
+		boolean cookiesExist = false;
+		while (iter.hasNext()) {
+			String header = iter.next();
+			if (!header.toLowerCase().startsWith("cookie:")) continue;
+			iter.remove();
+			for (String cookie : header.substring(8).split("; ?")) {
+				if (cookiesExist) {
+					py.append(", \"");
+				} else {
+					cookiesExist = true;
+					py.append('\n').append(prefix).append("cookies = {\"");
+				}
+				String[] parts = cookie.split("=", 2);
+				py.append(escapeQuotes(parts[0]));
+				py.append("\": \"");
+				py.append(escapeQuotes(parts[1]));
+				py.append('"');
+			}
+		}
+		if (cookiesExist) py.append('}');
+		return cookiesExist;
 	}
 
 	private static void processHeaders(StringBuilder py, List<String> headers) {
