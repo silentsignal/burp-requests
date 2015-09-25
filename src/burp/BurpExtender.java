@@ -100,7 +100,7 @@ public class BurpExtender implements IBurpExtender, IContextMenuFactory, Clipboa
 		}
 	}
 
-	private String escapeQuotes(String value) {
+	private static String escapeQuotes(String value) {
 		return value.replace("\\", "\\\\").replace("\"", "\\\"")
 			.replace("\n", "\\n").replace("\r", "\\r");
 	}
