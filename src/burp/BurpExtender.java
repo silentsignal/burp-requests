@@ -45,23 +45,7 @@ public class BurpExtender implements IBurpExtender, IContextMenuFactory, Clipboa
 			py.append("(\"");
 			py.append(escapeQuotes(ri.getUrl().toString()));
 			py.append("\", headers={");
-			boolean firstHeader = true;
-			for (String header : ri.getHeaders()) {
-				if (header.toLowerCase().startsWith("host:")) continue;
-				header = escapeQuotes(header);
-				int colonPos = header.indexOf(':');
-				if (colonPos == -1) continue;
-				if (firstHeader) {
-					firstHeader = false;
-					py.append('"');
-				} else {
-					py.append(", \"");
-				}
-				py.append(header, 0, colonPos);
-				py.append("\": \"");
-				py.append(header, colonPos + 2, header.length());
-				py.append('"');
-			}
+			processHeaders(py, ri.getHeaders());
 			py.append('}');
 			processBody(py, req, ri);
 			py.append(')');
@@ -69,6 +53,26 @@ public class BurpExtender implements IBurpExtender, IContextMenuFactory, Clipboa
 
 		Toolkit.getDefaultToolkit().getSystemClipboard()
 			.setContents(new StringSelection(py.toString()), this);
+	}
+
+	private static void processHeaders(StringBuilder py, List<String> headers) {
+		boolean firstHeader = true;
+		for (String header : headers) {
+			if (header.toLowerCase().startsWith("host:")) continue;
+			header = escapeQuotes(header);
+			int colonPos = header.indexOf(':');
+			if (colonPos == -1) continue;
+			if (firstHeader) {
+				firstHeader = false;
+				py.append('"');
+			} else {
+				py.append(", \"");
+			}
+			py.append(header, 0, colonPos);
+			py.append("\": \"");
+			py.append(header, colonPos + 2, header.length());
+			py.append('"');
+		}
 	}
 
 	private void processBody(StringBuilder py, byte[] req, IRequestInfo ri) {
