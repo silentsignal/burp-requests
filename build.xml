@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="burp-requests" default="plugin">
+	<target name="plugin" depends="classes">
+		<zip destfile="burp-requests.jar">
+			<fileset dir="build">
+				<include name="burp/BurpExtender*.class"/>
+			</fileset>
+		</zip>
+	</target>
+	<target name="classes">
+		<mkdir dir="build"/>
+		<javac srcdir="src" destdir="build" includeantruntime="false"/>
+	</target>
+	<target name="clean">
+		<delete dir="build"/>
+		<delete file="burp-requests.jar"/>
+	</target>
+</project>
