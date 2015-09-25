@@ -77,30 +77,29 @@ public class BurpExtender implements IBurpExtender, IContextMenuFactory, Clipboa
 
 	private void processBody(StringBuilder py, byte[] req, IRequestInfo ri) {
 		int bo = ri.getBodyOffset();
-		if (bo < req.length - 1) {
-			py.append(", data=");
-			if (ri.getContentType() == IRequestInfo.CONTENT_TYPE_URL_ENCODED) {
-				py.append('{');
-				boolean firstKey = true;
-				for (String param : new String(req, bo, req.length - bo).split("&")) {
-					if (firstKey) {
-						firstKey = false;
-						py.append('"');
-					} else {
-						py.append(", \"");
-					}
-					String[] parts = param.split("=", 2);
-					py.append(escapeQuotes(helpers.urlDecode(parts[0])));
-					py.append("\": \"");
-					py.append(escapeQuotes(helpers.urlDecode(parts[1])));
+		if (bo == req.length - 1) return;
+		py.append(", data=");
+		if (ri.getContentType() == IRequestInfo.CONTENT_TYPE_URL_ENCODED) {
+			py.append('{');
+			boolean firstKey = true;
+			for (String param : new String(req, bo, req.length - bo).split("&")) {
+				if (firstKey) {
+					firstKey = false;
 					py.append('"');
+				} else {
+					py.append(", \"");
 				}
-				py.append('}');
-			} else {
-				py.append('"');
-				py.append(escapeQuotes(new String(req, bo, req.length - bo)));
+				String[] parts = param.split("=", 2);
+				py.append(escapeQuotes(helpers.urlDecode(parts[0])));
+				py.append("\": \"");
+				py.append(escapeQuotes(helpers.urlDecode(parts[1])));
 				py.append('"');
 			}
+			py.append('}');
+		} else {
+			py.append('"');
+			py.append(escapeQuotes(new String(req, bo, req.length - bo)));
+			py.append('"');
 		}
 	}
 
