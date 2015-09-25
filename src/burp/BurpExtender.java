@@ -41,11 +41,12 @@ public class BurpExtender implements IBurpExtender, IContextMenuFactory
 			py.append("\nrequests.");
 			py.append(ri.getMethod().toLowerCase());
 			py.append("(\"");
-			py.append(ri.getUrl().toString());
+			py.append(escapeQuotes(ri.getUrl().toString()));
 			py.append("\", headers={");
 			boolean firstHeader = true;
 			for (String header : ri.getHeaders()) {
 				if (header.startsWith("Host:")) continue;
+				header = escapeQuotes(header);
 				int colonPos = header.indexOf(':');
 				if (colonPos == -1) continue;
 				if (firstHeader) {
@@ -74,15 +75,15 @@ public class BurpExtender implements IBurpExtender, IContextMenuFactory
 							py.append(", \"");
 						}
 						String[] parts = param.split("=", 2);
-						py.append(helpers.urlDecode(parts[0]));
+						py.append(escapeQuotes(helpers.urlDecode(parts[0])));
 						py.append("\": \"");
-						py.append(helpers.urlDecode(parts[1]));
+						py.append(escapeQuotes(helpers.urlDecode(parts[1])));
 						py.append('"');
 					}
 					py.append('}');
 				} else {
 					py.append('"');
-					py.append(new String(req, bo, req.length - bo));
+					py.append(escapeQuotes(new String(req, bo, req.length - bo)));
 					py.append('"');
 				}
 			}
@@ -90,5 +91,10 @@ public class BurpExtender implements IBurpExtender, IContextMenuFactory
 		}
 
 		System.err.println(py.toString()); // TODO clipboard
+	}
+
+	private String escapeQuotes(String value) {
+		return value.replace("\\", "\\\\").replace("\"", "\\\"")
+			.replace("\n", "\\n").replace("\r", "\\r");
 	}
 }
