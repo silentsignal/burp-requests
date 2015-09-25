@@ -1,10 +1,12 @@
 package burp;
 
 import java.util.*;
+import java.awt.datatransfer.*;
 import java.awt.event.*;
+import java.awt.Toolkit;
 import javax.swing.JMenuItem;
 
-public class BurpExtender implements IBurpExtender, IContextMenuFactory
+public class BurpExtender implements IBurpExtender, IContextMenuFactory, ClipboardOwner
 {
 	private IExtensionHelpers helpers;
 
@@ -65,7 +67,8 @@ public class BurpExtender implements IBurpExtender, IContextMenuFactory
 			py.append(')');
 		}
 
-		System.err.println(py.toString()); // TODO clipboard
+		Toolkit.getDefaultToolkit().getSystemClipboard()
+			.setContents(new StringSelection(py.toString()), this);
 	}
 
 	private void processBody(StringBuilder py, byte[] req, IRequestInfo ri) {
@@ -101,4 +104,7 @@ public class BurpExtender implements IBurpExtender, IContextMenuFactory
 		return value.replace("\\", "\\\\").replace("\"", "\\\"")
 			.replace("\n", "\\n").replace("\r", "\\r");
 	}
+
+	@Override
+	public void lostOwnership(Clipboard aClipboard, Transferable aContents) {}
 }
