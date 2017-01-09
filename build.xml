@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project name="burp-requests" default="plugin">
+    <property environment="env"/>
 	<target name="plugin" depends="classes">
 		<zip destfile="burp-requests.jar">
 			<fileset dir="build">
@@ -9,7 +10,11 @@
 	</target>
 	<target name="classes">
 		<mkdir dir="build"/>
-		<javac srcdir="src" destdir="build" includeantruntime="false"/>
+		<javac srcdir="src" destdir="build" includeantruntime="false">
+            <classpath>
+                <pathelement path="${env.BURP_JAR}"/>
+            </classpath>
+        </javac>
 	</target>
 	<target name="clean">
 		<delete dir="build"/>
