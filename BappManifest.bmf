@@ -8,4 +8,4 @@ ProOnly: False
 Author: Andras Veres-Szentkiralyi
 ShortDescription: Copies selected request(s) as Python-Requests invocations.
 EntryPoint: burp-requests.jar
-BuildCommand: ant
+BuildCommand: curl -o burp-extender-api.jar http://repo1.maven.org/maven2/net/portswigger/burp/extender/burp-extender-api/1.7.13/burp-extender-api-1.7.13.jar && ant
