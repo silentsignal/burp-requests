@@ -125,8 +125,9 @@ public class BurpExtender implements IBurpExtender, IContextMenuFactory, Clipboa
 			byte[] req, IRequestInfo ri) {
 		int bo = ri.getBodyOffset();
 		if (bo >= req.length - 2) return false;
-		py.append('\n').append(prefix).append("data=");
+		py.append('\n').append(prefix);
 		byte contentType = ri.getContentType();
+		py.append("data=");
 		if (contentType == IRequestInfo.CONTENT_TYPE_URL_ENCODED) {
 			py.append('{');
 			boolean firstKey = true;
