@@ -4,6 +4,7 @@ import java.util.*;
 import java.awt.datatransfer.*;
 import java.awt.event.*;
 import java.awt.Toolkit;
+import java.io.UnsupportedEncodingException;
 import javax.swing.JMenuItem;
 
 public class BurpExtender implements IBurpExtender, IContextMenuFactory, ClipboardOwner
@@ -132,6 +133,11 @@ public class BurpExtender implements IBurpExtender, IContextMenuFactory, Clipboa
 		if (bo >= req.length - 2) return null;
 		py.append('\n').append(prefix);
 		byte contentType = ri.getContentType();
+		if (contentType == IRequestInfo.CONTENT_TYPE_JSON) {
+			py.append("json=");
+			escapeJson(req, py, bo, req.length);
+			return BodyType.JSON;
+		}
 		py.append("data=");
 		if (contentType == IRequestInfo.CONTENT_TYPE_URL_ENCODED) {
 			py.append('{');
@@ -178,6 +184,56 @@ public class BurpExtender implements IBurpExtender, IContextMenuFactory, Clipboa
 			escapeBytes(dec, output, 0, dec.length);
 		} else {
 			output.append("''");
+		}
+	}
+
+	private enum JsonParsingState {OBJECT, STRING, ESCAPE};
+
+	private static void escapeJson(byte[] input, StringBuilder output,
+			int start, int end) {
+		JsonParsingState state = JsonParsingState.OBJECT;
+		int notEchoed = start;
+		for (int pos = start; pos < end; pos++) {
+			switch (state) {
+				case OBJECT:
+					if (input[pos] == '"') {
+						state = JsonParsingState.STRING;
+						output.append(pythonify(input, notEchoed, pos));
+						notEchoed = pos;
+					}
+					break;
+				case STRING:
+					switch (input[pos]) {
+						case '"':
+							state = JsonParsingState.OBJECT;
+							output.append(byteSliceToString(input, notEchoed, pos));
+							notEchoed = pos;
+							break;
+						case '\\':
+							state = JsonParsingState.ESCAPE;
+							break;
+					}
+					break;
+				case ESCAPE:
+					state = JsonParsingState.STRING;
+					break;
+			}
+		}
+		output.append(pythonify(input, notEchoed, end));
+	}
+
+	private static String pythonify(byte[] input, int from, int till) {
+		return byteSliceToString(input, from, till)
+			.replace("true", "True")
+			.replace("false", "False")
+			.replace("null", "None");
+	}
+
+	private static String byteSliceToString(byte[] input, int from, int till) {
+		try {
+			return new String(input, from, till - from, "ISO-8859-1");
+		} catch (UnsupportedEncodingException uee) {
+			throw new RuntimeException("All JVMs must support ISO-8859-1");
 		}
 	}
 
