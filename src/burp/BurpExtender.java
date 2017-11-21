@@ -45,6 +45,8 @@ public class BurpExtender implements IBurpExtender, IContextMenuFactory, Clipboa
 		return Collections.singletonList(i);
 	}
 
+	private enum BodyType {JSON, DATA};
+
 	private void copyMessages(IHttpRequestResponse[] messages) {
 		StringBuilder py = new StringBuilder("import requests");
 		int i = 0;
@@ -61,13 +63,16 @@ public class BurpExtender implements IBurpExtender, IContextMenuFactory, Clipboa
 			py.append('\n').append(prefix).append("headers = {");
 			processHeaders(py, headers);
 			py.append('}');
-			boolean bodyExists = processBody(prefix, py, req, ri);
+			BodyType bodyType = processBody(prefix, py, req, ri);
 			py.append("\nrequests.");
 			py.append(ri.getMethod().toLowerCase());
 			py.append('(').append(prefix).append("url, headers=");
 			py.append(prefix).append("headers");
 			if (cookiesExist) py.append(", cookies=").append(prefix).append("cookies");
-			if (bodyExists) py.append(", data=").append(prefix).append("data");
+			if (bodyType != null) {
+				String kind = bodyType.toString().toLowerCase();
+				py.append(", ").append(kind).append('=').append(prefix).append(kind);
+			}
 			py.append(')');
 		}
 
@@ -121,10 +126,10 @@ public class BurpExtender implements IBurpExtender, IContextMenuFactory, Clipboa
 		}
 	}
 
-	private boolean processBody(String prefix, StringBuilder py,
+	private BodyType processBody(String prefix, StringBuilder py,
 			byte[] req, IRequestInfo ri) {
 		int bo = ri.getBodyOffset();
-		if (bo >= req.length - 2) return false;
+		if (bo >= req.length - 2) return null;
 		py.append('\n').append(prefix);
 		byte contentType = ri.getContentType();
 		py.append("data=");
@@ -158,7 +163,7 @@ public class BurpExtender implements IBurpExtender, IContextMenuFactory, Clipboa
 		} else {
 			escapeBytes(req, py, bo, req.length);
 		}
-		return true;
+		return BodyType.DATA;
 	}
 
 	private static String escapeQuotes(String value) {
