@@ -7,6 +7,8 @@ import java.awt.Toolkit;
 import java.io.UnsupportedEncodingException;
 import javax.swing.JMenuItem;
 
+import mjson.Json;
+
 public class BurpExtender implements IBurpExtender, IContextMenuFactory, ClipboardOwner
 {
 	private IExtensionHelpers helpers;
@@ -140,9 +142,14 @@ header_loop:
 		py.append('\n').append(prefix);
 		byte contentType = ri.getContentType();
 		if (contentType == IRequestInfo.CONTENT_TYPE_JSON) {
-			py.append("json=");
-			escapeJson(req, py, bo, req.length);
-			return BodyType.JSON;
+			try {
+				Json root = Json.read(byteSliceToString(req, bo, req.length));
+				py.append("json=");
+				escapeJson(root, py);
+				return BodyType.JSON;
+			} catch (Exception e) {
+				// not valid JSON, treat it like any other kind of data
+			}
 		}
 		py.append("data=");
 		if (contentType == IRequestInfo.CONTENT_TYPE_URL_ENCODED) {
@@ -193,46 +200,39 @@ header_loop:
 		}
 	}
 
-	private enum JsonParsingState {OBJECT, STRING, ESCAPE};
+	private static final String PYTHON_TRUE = "True", PYTHON_FALSE = "False", PYTHON_NULL = "None";
 
-	private static void escapeJson(byte[] input, StringBuilder output,
-			int start, int end) {
-		JsonParsingState state = JsonParsingState.OBJECT;
-		int notEchoed = start;
-		for (int pos = start; pos < end; pos++) {
-			switch (state) {
-				case OBJECT:
-					if (input[pos] == '"') {
-						state = JsonParsingState.STRING;
-						output.append(pythonify(input, notEchoed, pos));
-						notEchoed = pos;
-					}
-					break;
-				case STRING:
-					switch (input[pos]) {
-						case '"':
-							state = JsonParsingState.OBJECT;
-							output.append(byteSliceToString(input, notEchoed, pos));
-							notEchoed = pos;
-							break;
-						case '\\':
-							state = JsonParsingState.ESCAPE;
-							break;
-					}
-					break;
-				case ESCAPE:
-					state = JsonParsingState.STRING;
-					break;
+	private static void escapeJson(Json node, StringBuilder output) {
+		if (node.isObject()) {
+			String prefix = "{";
+			Map<String, Json> tm = new TreeMap(String.CASE_INSENSITIVE_ORDER);
+			tm.putAll(node.asJsonMap());
+			for (Map.Entry<String, Json> e : tm.entrySet()) {
+				output.append(prefix);
+				prefix = ", ";
+				escapeString(e.getKey(), output);
+				output.append(": ");
+				escapeJson(e.getValue(), output);
 			}
+			output.append('}');
+		} else if (node.isArray()) {
+			String prefix = "[";
+			Map<String, Json> tm = new TreeMap(String.CASE_INSENSITIVE_ORDER);
+			for (Json value : node.asJsonList()) {
+				output.append(prefix);
+				prefix = ", ";
+				escapeJson(value,output);
+			}
+			output.append(']');
+		} else if (node.isString()) {
+			escapeString(node.asString(), output);
+		} else if (node.isBoolean()) {
+			output.append(node.asBoolean() ? PYTHON_TRUE : PYTHON_FALSE);
+		} else if (node.isNull()) {
+			output.append(PYTHON_NULL);
+		} else if (node.isNumber()) {
+			output.append(node.asString());
 		}
-		output.append(pythonify(input, notEchoed, end));
-	}
-
-	private static String pythonify(byte[] input, int from, int till) {
-		return byteSliceToString(input, from, till)
-			.replace("true", "True")
-			.replace("false", "False")
-			.replace("null", "None");
 	}
 
 	private static String byteSliceToString(byte[] input, int from, int till) {
@@ -241,6 +241,15 @@ header_loop:
 		} catch (UnsupportedEncodingException uee) {
 			throw new RuntimeException("All JVMs must support ISO-8859-1");
 		}
+	}
+
+	private static void escapeString(String input, StringBuilder output) {
+		output.append('"');
+		int length = input.length();
+		for (int pos = 0; pos < length; pos++) {
+			output.append(PYTHON_ESCAPE[input.charAt(pos) & 0xFF]);
+		}
+		output.append('"');
 	}
 
 	private static void escapeBytes(byte[] input, StringBuilder output,

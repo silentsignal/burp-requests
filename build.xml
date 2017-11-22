@@ -5,6 +5,7 @@
 		<zip destfile="burp-requests.jar">
 			<fileset dir="build">
 				<include name="burp/BurpExtender*.class"/>
+				<include name="mjson/Json*.class"/>
 			</fileset>
 		</zip>
 	</target>
