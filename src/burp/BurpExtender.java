@@ -107,10 +107,16 @@ public class BurpExtender implements IBurpExtender, IContextMenuFactory, Clipboa
 		return cookiesExist;
 	}
 
+	private static final Collection<String> IGNORE_HEADERS = Arrays.asList("host:", "content-length:");
+
 	private static void processHeaders(StringBuilder py, List<String> headers) {
 		boolean firstHeader = true;
+header_loop:
 		for (String header : headers) {
-			if (header.toLowerCase().startsWith("host:")) continue;
+			String lowerCaseHeader = header.toLowerCase();
+			for (String headerToIgnore : IGNORE_HEADERS) {
+				if (lowerCaseHeader.startsWith(headerToIgnore)) continue header_loop;
+			}
 			header = escapeQuotes(header);
 			int colonPos = header.indexOf(':');
 			if (colonPos == -1) continue;
