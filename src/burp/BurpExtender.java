@@ -4,7 +4,10 @@ import java.util.*;
 import java.awt.datatransfer.*;
 import java.awt.event.*;
 import java.awt.Toolkit;
+import java.io.UnsupportedEncodingException;
 import javax.swing.JMenuItem;
+
+import mjson.Json;
 
 public class BurpExtender implements IBurpExtender, IContextMenuFactory, ClipboardOwner
 {
@@ -45,6 +48,8 @@ public class BurpExtender implements IBurpExtender, IContextMenuFactory, Clipboa
 		return Collections.singletonList(i);
 	}
 
+	private enum BodyType {JSON, DATA};
+
 	private void copyMessages(IHttpRequestResponse[] messages) {
 		StringBuilder py = new StringBuilder("import requests");
 		int i = 0;
@@ -61,13 +66,16 @@ public class BurpExtender implements IBurpExtender, IContextMenuFactory, Clipboa
 			py.append('\n').append(prefix).append("headers = {");
 			processHeaders(py, headers);
 			py.append('}');
-			boolean bodyExists = processBody(prefix, py, req, ri);
+			BodyType bodyType = processBody(prefix, py, req, ri);
 			py.append("\nrequests.");
 			py.append(ri.getMethod().toLowerCase());
 			py.append('(').append(prefix).append("url, headers=");
 			py.append(prefix).append("headers");
 			if (cookiesExist) py.append(", cookies=").append(prefix).append("cookies");
-			if (bodyExists) py.append(", data=").append(prefix).append("data");
+			if (bodyType != null) {
+				String kind = bodyType.toString().toLowerCase();
+				py.append(", ").append(kind).append('=').append(prefix).append(kind);
+			}
 			py.append(')');
 		}
 
@@ -101,10 +109,16 @@ public class BurpExtender implements IBurpExtender, IContextMenuFactory, Clipboa
 		return cookiesExist;
 	}
 
+	private static final Collection<String> IGNORE_HEADERS = Arrays.asList("host:", "content-length:");
+
 	private static void processHeaders(StringBuilder py, List<String> headers) {
 		boolean firstHeader = true;
+header_loop:
 		for (String header : headers) {
-			if (header.toLowerCase().startsWith("host:")) continue;
+			String lowerCaseHeader = header.toLowerCase();
+			for (String headerToIgnore : IGNORE_HEADERS) {
+				if (lowerCaseHeader.startsWith(headerToIgnore)) continue header_loop;
+			}
 			header = escapeQuotes(header);
 			int colonPos = header.indexOf(':');
 			if (colonPos == -1) continue;
@@ -121,12 +135,24 @@ public class BurpExtender implements IBurpExtender, IContextMenuFactory, Clipboa
 		}
 	}
 
-	private boolean processBody(String prefix, StringBuilder py,
+	private BodyType processBody(String prefix, StringBuilder py,
 			byte[] req, IRequestInfo ri) {
 		int bo = ri.getBodyOffset();
-		if (bo >= req.length - 2) return false;
-		py.append('\n').append(prefix).append("data=");
-		if (ri.getContentType() == IRequestInfo.CONTENT_TYPE_URL_ENCODED) {
+		if (bo >= req.length - 2) return null;
+		py.append('\n').append(prefix);
+		byte contentType = ri.getContentType();
+		if (contentType == IRequestInfo.CONTENT_TYPE_JSON) {
+			try {
+				Json root = Json.read(byteSliceToString(req, bo, req.length));
+				py.append("json=");
+				escapeJson(root, py);
+				return BodyType.JSON;
+			} catch (Exception e) {
+				// not valid JSON, treat it like any other kind of data
+			}
+		}
+		py.append("data=");
+		if (contentType == IRequestInfo.CONTENT_TYPE_URL_ENCODED) {
 			py.append('{');
 			boolean firstKey = true;
 			int keyStart = bo, keyEnd = -1;
@@ -156,7 +182,7 @@ public class BurpExtender implements IBurpExtender, IContextMenuFactory, Clipboa
 		} else {
 			escapeBytes(req, py, bo, req.length);
 		}
-		return true;
+		return BodyType.DATA;
 	}
 
 	private static String escapeQuotes(String value) {
@@ -172,6 +198,58 @@ public class BurpExtender implements IBurpExtender, IContextMenuFactory, Clipboa
 		} else {
 			output.append("''");
 		}
+	}
+
+	private static final String PYTHON_TRUE = "True", PYTHON_FALSE = "False", PYTHON_NULL = "None";
+
+	private static void escapeJson(Json node, StringBuilder output) {
+		if (node.isObject()) {
+			String prefix = "{";
+			Map<String, Json> tm = new TreeMap(String.CASE_INSENSITIVE_ORDER);
+			tm.putAll(node.asJsonMap());
+			for (Map.Entry<String, Json> e : tm.entrySet()) {
+				output.append(prefix);
+				prefix = ", ";
+				escapeString(e.getKey(), output);
+				output.append(": ");
+				escapeJson(e.getValue(), output);
+			}
+			output.append('}');
+		} else if (node.isArray()) {
+			String prefix = "[";
+			Map<String, Json> tm = new TreeMap(String.CASE_INSENSITIVE_ORDER);
+			for (Json value : node.asJsonList()) {
+				output.append(prefix);
+				prefix = ", ";
+				escapeJson(value,output);
+			}
+			output.append(']');
+		} else if (node.isString()) {
+			escapeString(node.asString(), output);
+		} else if (node.isBoolean()) {
+			output.append(node.asBoolean() ? PYTHON_TRUE : PYTHON_FALSE);
+		} else if (node.isNull()) {
+			output.append(PYTHON_NULL);
+		} else if (node.isNumber()) {
+			output.append(node.asString());
+		}
+	}
+
+	private static String byteSliceToString(byte[] input, int from, int till) {
+		try {
+			return new String(input, from, till - from, "ISO-8859-1");
+		} catch (UnsupportedEncodingException uee) {
+			throw new RuntimeException("All JVMs must support ISO-8859-1");
+		}
+	}
+
+	private static void escapeString(String input, StringBuilder output) {
+		output.append('"');
+		int length = input.length();
+		for (int pos = 0; pos < length; pos++) {
+			output.append(PYTHON_ESCAPE[input.charAt(pos) & 0xFF]);
+		}
+		output.append('"');
 	}
 
 	private static void escapeBytes(byte[] input, StringBuilder output,

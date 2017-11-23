@@ -18,7 +18,13 @@ Dependencies
 License
 -------
 
-The whole project is available under MIT license, see `LICENSE.txt`.
+The whole project is available under MIT license, see `LICENSE.txt`,
+except for the [Mjson library][3], where
+
+> The source code is a single Java file. [...] Some of it was ripped
+> off from other projects and credit and licensing notices are included
+> in the appropriate places. The license is Apache 2.0.
 
   [1]: http://docs.python-requests.org/
   [2]: https://portswigger.net/burp/extender/api/burp_extender_api.zip
+  [3]: https://bolerio.github.io/mjson/
