@@ -216,11 +216,14 @@ header_loop:
 			}
 			output.append('}');
 		} else if (node.isArray()) {
-			String prefix = "[";
-			for (Json value : node.asJsonList()) {
-				output.append(prefix);
-				prefix = ", ";
-				escapeJson(value,output);
+			output.append('[');
+			final Iterator<Json> iter = node.asJsonList().iterator();
+			if (iter.hasNext()) {
+				escapeJson(iter.next(), output);
+				while (iter.hasNext()) {
+					output.append(", ");
+					escapeJson(iter.next(), output);
+				}
 			}
 			output.append(']');
 		} else if (node.isString()) {
