@@ -217,7 +217,6 @@ header_loop:
 			output.append('}');
 		} else if (node.isArray()) {
 			String prefix = "[";
-			Map<String, Json> tm = new TreeMap(String.CASE_INSENSITIVE_ORDER);
 			for (Json value : node.asJsonList()) {
 				output.append(prefix);
 				prefix = ", ";
