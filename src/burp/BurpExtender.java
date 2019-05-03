@@ -166,7 +166,7 @@ header_loop:
 				// not valid JSON, treat it like any other kind of data
 			}
 		}
-		py.append("data=");
+		py.append("data = ");
 		if (contentType == IRequestInfo.CONTENT_TYPE_URL_ENCODED) {
 			py.append('{');
 			boolean firstKey = true;
