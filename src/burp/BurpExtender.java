@@ -14,7 +14,9 @@ public class BurpExtender implements IBurpExtender, IContextMenuFactory, Clipboa
 	private IExtensionHelpers helpers;
 
 	private final static String NAME = "Copy as requests";
+	private final static String SESSION_MENU_ITEM = NAME + " with session object";
 	private final static String[] PYTHON_ESCAPE = new String[256];
+	private final static String SESSION_VAR = "session";
 
 	static {
 		for (int i = 0x00; i <= 0xFF; i++) PYTHON_ESCAPE[i] = String.format("\\x%02x", i);
@@ -38,21 +40,34 @@ public class BurpExtender implements IBurpExtender, IContextMenuFactory, Clipboa
 	public List<JMenuItem> createMenuItems(IContextMenuInvocation invocation) {
 		final IHttpRequestResponse[] messages = invocation.getSelectedMessages();
 		if (messages == null || messages.length == 0) return null;
-		JMenuItem i = new JMenuItem(NAME);
-		i.addActionListener(new ActionListener() {
+		JMenuItem i1 = new JMenuItem(NAME);
+		i1.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				copyMessages(messages);
+				copyMessages(messages, false);
 			}
 		});
-		return Collections.singletonList(i);
+		JMenuItem i2 = new JMenuItem(SESSION_MENU_ITEM);
+		i2.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				copyMessages(messages, true);
+			}
+		});
+		return Arrays.asList(i1, i2);
 	}
 
 	private enum BodyType {JSON, DATA};
 
-	private void copyMessages(IHttpRequestResponse[] messages) {
+	private void copyMessages(IHttpRequestResponse[] messages, boolean withSessionObject) {
 		StringBuilder py = new StringBuilder("import requests");
+		String requestsMethodPrefix =
+			"\n" + (withSessionObject ? SESSION_VAR : "requests") + ".";
 		int i = 0;
+
+		if (withSessionObject) {
+			py.append("\n\n" + SESSION_VAR + " = requests.session()");
+		}
 
 		for (IHttpRequestResponse message : messages) {
 			IRequestInfo ri = helpers.analyzeRequest(message);
@@ -67,7 +82,7 @@ public class BurpExtender implements IBurpExtender, IContextMenuFactory, Clipboa
 			processHeaders(py, headers);
 			py.append('}');
 			BodyType bodyType = processBody(prefix, py, req, ri);
-			py.append("\nrequests.");
+			py.append(requestsMethodPrefix);
 			py.append(ri.getMethod().toLowerCase());
 			py.append('(').append(prefix).append("url, headers=");
 			py.append(prefix).append("headers");
@@ -151,7 +166,7 @@ header_loop:
 				// not valid JSON, treat it like any other kind of data
 			}
 		}
-		py.append("data=");
+		py.append("data = ");
 		if (contentType == IRequestInfo.CONTENT_TYPE_URL_ENCODED) {
 			py.append('{');
 			boolean firstKey = true;
@@ -216,12 +231,14 @@ header_loop:
 			}
 			output.append('}');
 		} else if (node.isArray()) {
-			String prefix = "[";
-			Map<String, Json> tm = new TreeMap(String.CASE_INSENSITIVE_ORDER);
-			for (Json value : node.asJsonList()) {
-				output.append(prefix);
-				prefix = ", ";
-				escapeJson(value,output);
+			output.append('[');
+			final Iterator<Json> iter = node.asJsonList().iterator();
+			if (iter.hasNext()) {
+				escapeJson(iter.next(), output);
+				while (iter.hasNext()) {
+					output.append(", ");
+					escapeJson(iter.next(), output);
+				}
 			}
 			output.append(']');
 		} else if (node.isString()) {
