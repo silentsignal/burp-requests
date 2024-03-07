@@ -128,8 +128,13 @@ public class BurpExtender implements IBurpExtender, IContextMenuFactory, Clipboa
 
 	private static void processHeaders(StringBuilder py, List<String> headers) {
 		boolean firstHeader = true;
+		boolean requestLine = true;
 header_loop:
 		for (String header : headers) {
+			if (requestLine) {
+				requestLine = false;
+				continue;
+			}
 			String lowerCaseHeader = header.toLowerCase();
 			for (String headerToIgnore : IGNORE_HEADERS) {
 				if (lowerCaseHeader.startsWith(headerToIgnore)) continue header_loop;
