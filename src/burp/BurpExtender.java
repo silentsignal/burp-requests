@@ -128,8 +128,13 @@ public class BurpExtender implements IBurpExtender, IContextMenuFactory, Clipboa
 
 	private static void processHeaders(StringBuilder py, List<String> headers) {
 		boolean firstHeader = true;
+		boolean requestLine = true;
 header_loop:
 		for (String header : headers) {
+			if (requestLine) {
+				requestLine = false;
+				continue;
+			}
 			String lowerCaseHeader = header.toLowerCase();
 			for (String headerToIgnore : IGNORE_HEADERS) {
 				if (lowerCaseHeader.startsWith(headerToIgnore)) continue header_loop;
@@ -219,15 +224,16 @@ header_loop:
 
 	private static void escapeJson(Json node, StringBuilder output) {
 		if (node.isObject()) {
-			String prefix = "{";
+			output.append('{');
 			Map<String, Json> tm = new TreeMap(String.CASE_INSENSITIVE_ORDER);
 			tm.putAll(node.asJsonMap());
-			for (Map.Entry<String, Json> e : tm.entrySet()) {
-				output.append(prefix);
-				prefix = ", ";
-				escapeString(e.getKey(), output);
-				output.append(": ");
-				escapeJson(e.getValue(), output);
+			final Iterator<Map.Entry<String, Json>> iter = tm.entrySet().iterator();
+			if (iter.hasNext()) {
+				appendIteratedEntry(iter, output);
+				while (iter.hasNext()) {
+					output.append(", ");
+					appendIteratedEntry(iter, output);
+				}
 			}
 			output.append('}');
 		} else if (node.isArray()) {
@@ -250,6 +256,13 @@ header_loop:
 		} else if (node.isNumber()) {
 			output.append(node.asString());
 		}
+	}
+
+	private static void appendIteratedEntry(Iterator<Map.Entry<String, Json>> iter, StringBuilder output) {
+		final Map.Entry<String, Json> e = iter.next();
+		escapeString(e.getKey(), output);
+		output.append(": ");
+		escapeJson(e.getValue(), output);
 	}
 
 	private static String byteSliceToString(byte[] input, int from, int till) {

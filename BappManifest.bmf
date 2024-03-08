@@ -2,8 +2,8 @@ Uuid: b324647b6efa4b6a8f346389730df160
 ExtensionType: 1
 Name: Copy As Python-Requests
 RepoName: copy-as-python-requests
-ScreenVersion: 0.2.3
-SerialVersion: 5
+ScreenVersion: 0.2.5
+SerialVersion: 7
 MinPlatformVersion: 0
 ProOnly: False
 Author: Andras Veres-Szentkiralyi
