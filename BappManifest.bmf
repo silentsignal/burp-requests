@@ -3,10 +3,11 @@ ExtensionType: 1
 Name: Copy As Python-Requests
 RepoName: copy-as-python-requests
 ScreenVersion: 0.2.5
-SerialVersion: 7
+SerialVersion: 8
 MinPlatformVersion: 0
 ProOnly: False
 Author: Andras Veres-Szentkiralyi
 ShortDescription: Copies selected request(s) as Python-Requests invocations.
-EntryPoint: burp-requests.jar
-BuildCommand: curl -o burp-extender-api.jar http://repo1.maven.org/maven2/net/portswigger/burp/extender/burp-extender-api/1.7.13/burp-extender-api-1.7.13.jar && ant
+EntryPoint: build/libs/copy-as-python-requests.jar
+BuildCommand: ./gradlew jar
+SupportedProducts: Pro, Community 
