@@ -102,23 +102,25 @@ public class BurpExtender implements IBurpExtender, IContextMenuFactory, Clipboa
 			List<String> headers) {
 		ListIterator<String> iter = headers.listIterator();
 		boolean cookiesExist = false;
+outer:
 		while (iter.hasNext()) {
 			String header = iter.next();
 			if (!header.toLowerCase().startsWith("cookie:")) continue;
-			iter.remove();
 			for (String cookie : header.substring(8).split("; ?")) {
+				String[] parts = cookie.split("=", 2);
+				if (parts.length < 2) continue outer;
 				if (cookiesExist) {
 					py.append(", \"");
 				} else {
 					cookiesExist = true;
 					py.append('\n').append(prefix).append("cookies = {\"");
 				}
-				String[] parts = cookie.split("=", 2);
 				py.append(escapeQuotes(parts[0]));
 				py.append("\": \"");
 				py.append(escapeQuotes(parts[1]));
 				py.append('"');
 			}
+			iter.remove();
 		}
 		if (cookiesExist) py.append('}');
 		return cookiesExist;
